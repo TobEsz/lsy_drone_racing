@@ -9,8 +9,10 @@ At each time step, the controller computes the next desired position by evaluati
     trajectory if you receive updated gate and obstacle poses.
 """
 
+# Future imports (always placed at the very top)
+from __future__ import annotations
+
 # Standard library imports
-from __future__ import annotations  # Python 3.10 type hints
 from typing import TYPE_CHECKING, List, Tuple, Dict, Any
 
 # Third-party imports
@@ -373,8 +375,8 @@ class Pathfinder:
     def interpolate_path(self) -> None:
         """Interpolates the path using linear interpolation for smooth navigation."""
         self.path = np.asarray(self.path_eva)
-        N = len(self.path)
-        t_values = np.linspace(0, N / self.fly_speed, N)
+        self.N = len(self.path)
+        t_values = np.linspace(0, self.N / self.fly_speed, self.N)
         self.spline = interp1d(t_values, self.path, axis=0)
 
     def des_pos(self, t: float) -> np.ndarray:
@@ -386,6 +388,8 @@ class Pathfinder:
         Returns:
             np.ndarray: Interpolated position at time t.
         """
+        if t >= self.N / self.fly_speed:
+            return self.current_pos
         return self.spline(t) - [0,0,0.05]
 
 
