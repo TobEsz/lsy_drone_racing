@@ -9,29 +9,25 @@ At each time step, the controller computes the next desired position by evaluati
     trajectory if you receive updated gate and obstacle poses.
 """
 
+# Standard library imports
 from __future__ import annotations  # Python 3.10 type hints
+from typing import TYPE_CHECKING, List, Tuple, Dict, Any
 
-from typing import TYPE_CHECKING
-
+# Third-party imports
 import numpy as np
-from scipy.interpolate import CubicSpline
 from scipy.interpolate import interp1d
 from scipy.spatial.transform import Rotation as R
-import random
 
+# Local application imports
 from lsy_drone_racing.control import Controller
-from lsy_drone_racing.utils import utils
+# from lsy_drone_racing.utils import utils  # Uncomment when needed
 
+# Type checking
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-
-import numpy as np
-from typing import List, Tuple, Dict, Any
-
 def length(v: np.ndarray) -> float:
-    """
-    Computes the Euclidean length of a vector.
+    """Computes the Euclidean length of a vector.
 
     Args:
         v (np.ndarray): Input vector.
@@ -43,8 +39,7 @@ def length(v: np.ndarray) -> float:
 
 
 def normalize(v: np.ndarray) -> np.ndarray:
-    """
-    Normalizes a vector to unit length.
+    """Normalizes a vector to unit length.
 
     Args:
         v (np.ndarray): Input vector.
@@ -59,8 +54,7 @@ def normalize(v: np.ndarray) -> np.ndarray:
 
 
 def angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
-    """
-    Calculates the angle in degrees between two vectors.
+    """Calculates the angle in degrees between two vectors.
 
     Args:
         v1 (np.ndarray): First vector.
@@ -77,8 +71,7 @@ def angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
 
 
 def compute_evasion_angles(V1: np.ndarray, V2: np.ndarray, evas: List[np.ndarray]) -> Tuple[float, float]:
-    """
-    Computes the angular deviation between the original direction and two evasive directions.
+    """Computes the angular deviation between the original direction and two evasive directions.
 
     Args:
         V1 (np.ndarray): Starting point.
@@ -99,8 +92,7 @@ def compute_evasion_angles(V1: np.ndarray, V2: np.ndarray, evas: List[np.ndarray
 
 
 def sort_by_distance(points: List[np.ndarray], reference_point: np.ndarray) -> List[np.ndarray]:
-    """
-    Sorts a list of points by their distance to a reference point.
+    """Sorts a list of points by their distance to a reference point.
 
     Args:
         points (List[np.ndarray]): List of points to sort.
@@ -117,9 +109,7 @@ def sort_by_distance(points: List[np.ndarray], reference_point: np.ndarray) -> L
 
 
 class Pipe:
-    """
-    Represents a cylindrical pipe segment in 3D space, used for collision detection and evasion logic.
-    """
+    """Represents a cylindrical pipe segment in 3D space, used for collision detection and evasion logic."""
 
     def __init__(
         self,
@@ -129,8 +119,7 @@ class Pipe:
         ra: float,
         h: float
     ) -> None:
-        """
-        Initializes a Pipe object.
+        """Initializes a Pipe object.
 
         Args:
             center_pos (List[float]): Center position of the pipe.
@@ -156,9 +145,7 @@ class Pipe:
             self.fix_evasion_pos = [fix_pos, fix_pos]
 
     def _compute_bounds(self) -> None:
-        """
-        Computes the bounding box of the pipe based on its radius and axis.
-        """
+        """Computes the bounding box of the pipe based on its radius and axis."""
         points = [
             self.axis_start + np.array([dx, dy, dz])
             for dx in [-self.ra, self.ra]
@@ -175,8 +162,7 @@ class Pipe:
         self.bbox_max = np.max(points, axis=0)
 
     def contains_point(self, point: np.ndarray) -> bool:
-        """
-        Checks whether a given point lies within the pipe's volume.
+        """Checks whether a given point lies within the pipe's volume.
 
         Args:
             point (np.ndarray): The point to check.
@@ -196,8 +182,7 @@ class Pipe:
         return self.ri <= radial_dist <= self.ra
 
     def is_colliding(self, V1: np.ndarray, V2: np.ndarray) -> bool:
-        """
-        Checks whether a line segment between V1 and V2 collides with the pipe.
+        """Checks whether a line segment between V1 and V2 collides with the pipe.
 
         Args:
             V1 (np.ndarray): Start point of the segment.
@@ -235,8 +220,7 @@ class Pipe:
         return False
 
     def set_up_evasion(self, obstacles: List["Pipe"]) -> None:
-        """
-        Computes an evasion direction based on surrounding obstacles.
+        """Computes an evasion direction based on surrounding obstacles.
 
         Args:
             obstacles (List[Pipe]): List of other pipe objects to avoid.
@@ -260,13 +244,10 @@ class Pipe:
 
 
 class Pathfinder:
-    """
-    Computes and manages a navigable path through gates and obstacles using evasion logic.
-    """
+    """Computes and manages a navigable path through gates and obstacles using evasion logic."""
 
     def __init__(self, obs: Dict[str, Any]) -> None:
-        """
-        Initializes the Pathfinder with environment data.
+        """Initializes the Pathfinder with environment data.
 
         Args:
             obs (Dict[str, Any]): Observation dictionary containing position, gates, and obstacles.
@@ -287,8 +268,7 @@ class Pathfinder:
         self.last_t = -0.001
 
     def update(self, obs: Dict[str, Any]) -> None:
-        """
-        Updates the current position and recalculates the path.
+        """Updates the current position and recalculates the path.
 
         Args:
             obs (Dict[str, Any]): Updated observation data.
@@ -299,8 +279,7 @@ class Pathfinder:
         self.interpolate_path()
 
     def set_obs(self, obs: Dict[str, Any]) -> None:
-        """
-        Sets up obstacles and gates based on the observation data.
+        """Sets up obstacles and gates based on the observation data.
 
         Args:
             obs (Dict[str, Any]): Observation data containing gates and obstacles.
@@ -320,9 +299,7 @@ class Pathfinder:
             self.obstacles.append(Pipe(stab_pos, [0, 0, 1], 0, self.stab_ra, 4))
 
     def check_path(self) -> None:
-        """
-        Constructs the path with evasion points between gates and obstacles.
-        """
+        """Constructs the path with evasion points between gates and obstacles."""
         self.path_eva = [self.start_pos]
         i = 1
         while i + 2 < len(self.path_free):
@@ -337,8 +314,7 @@ class Pathfinder:
             i += 1
 
     def add_evasion_pos(self, V1: np.ndarray, V2: np.ndarray) -> None:
-        """
-        Adds evasion points between two path segments if a collision is detected.
+        """Adds evasion points between two path segments if a collision is detected.
 
         Args:
             V1 (np.ndarray): Start point of the segment.
@@ -363,8 +339,7 @@ class Pathfinder:
         self.path_eva += new_evasion_pos
 
     def get_gate_pos_and_dir(self, pos: np.ndarray, quat: List[float]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """
-        Computes gate direction and offset positions based on quaternion orientation.
+        """Computes gate direction and offset positions based on quaternion orientation.
 
         Args:
             pos (np.ndarray): Gate position.
@@ -379,8 +354,7 @@ class Pathfinder:
         return pos + shift, pos - shift, gate_dir
 
     def is_path_free(self, path: List[np.ndarray]) -> bool:
-        """
-        Checks whether a given path is free of collisions.
+        """Checks whether a given path is free of collisions.
 
         Args:
             path (List[np.ndarray]): List of path points.
@@ -397,17 +371,14 @@ class Pathfinder:
         return True
 
     def interpolate_path(self) -> None:
-        """
-        Interpolates the path using linear interpolation for smooth navigation.
-        """
+        """Interpolates the path using linear interpolation for smooth navigation."""
         self.path = np.asarray(self.path_eva)
         N = len(self.path)
         t_values = np.linspace(0, N / self.fly_speed, N)
         self.spline = interp1d(t_values, self.path, axis=0)
 
     def des_pos(self, t: float) -> np.ndarray:
-        """
-        Returns the desired position at time t along the interpolated path.
+        """Returns the desired position at time t along the interpolated path.
 
         Args:
             t (float): Time value.
@@ -461,7 +432,7 @@ class StateController(Controller):
 
         self.pf.update(obs)
 
-        utils.draw_line(info['env'],np.asarray(self.pf.path_eva))
+        #utils.draw_line(info['env'],np.asarray(self.pf.path_eva))
         des_pos = self.pf.des_pos(t)
         
         action = np.concatenate((des_pos, np.zeros(10)), dtype=np.float32)

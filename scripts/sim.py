@@ -82,7 +82,7 @@ def simulate(
 
         while True:
             curr_time = i / config.env.freq
-            info['env'] = env #Tobias Eszlinger added this line
+            #info['env'] = env #Tobias Eszlinger added this line
             action = controller.compute_control(obs, info)
             # Convert to a buffer that meets XLA's alginment restrictions to prevent warnings. See
             # https://github.com/jax-ml/jax/discussions/6055
