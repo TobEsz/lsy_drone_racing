@@ -29,7 +29,7 @@ from gymnasium.wrappers.vector.jax_to_torch import JaxToTorch
 from jax import Array
 from jax.scipy.spatial.transform import Rotation as R
 from ml_collections import ConfigDict
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import interp1d
 from torch import Tensor
 from torch.distributions.normal import Normal
 
@@ -127,11 +127,11 @@ class RandTrajEnv(DroneEnv):
     def __init__(
         self,
         n_samples: int = 10,
-        trajectory_time: float = 15.0,
+        trajectory_time: float = 8.0,
         samples_dt: float = 0.1,
         *,
         num_envs: int = 1,
-        max_episode_time: float = 15.0,
+        max_episode_time: float = 8.0,
         physics: Literal["so_rpy_rotor_drag", "first_principles"]
         | Physics = Physics.first_principles,
         drone_model: str = "cf21B_500",
@@ -211,7 +211,7 @@ class RandTrajEnv(DroneEnv):
         t = np.linspace(0, self.trajectory_time, self.n_steps)
         scale = np.array([1.2, 1.2, 0.5])
         waypoints = (
-            np.random.uniform(-1, 1, size=(self.sim.n_worlds, self.num_waypoints, 3)) * scale
+            np.random.uniform(-2, 2, size=(self.sim.n_worlds, self.num_waypoints, 3)) * scale
         )
         waypoints = (
             waypoints + 0.3 * self.takeoff_pos + np.array([0.0, 0.0, 0.7])
@@ -220,11 +220,12 @@ class RandTrajEnv(DroneEnv):
             [[-1.5, 1.0, 0.07], [-1.0, 0.55, 0.4], [0.3, 0.35, 0.7]]
         )  # set first three waypoints
         v0 = np.tile(np.array([[0.0, 0.0, 0.4]]), (self.sim.n_worlds, 1))  # takeoff velocity
-        spline = CubicSpline(
+        spline = interp1d(
             np.linspace(0, self.trajectory_time, self.num_waypoints),
             waypoints,
-            axis=1,
-            bc_type=((1, v0), "not-a-knot"),
+            axis=1
+        #    axis=1,
+        #    bc_type=((1, v0), "not-a-knot"),
         )
         self.trajectories = spline(t)  # (n_worlds, n_steps, 3)
 
@@ -804,6 +805,7 @@ def evaluate_ppo(args: Args, n_eval: int, model_path: Path) -> tuple[float, floa
 def main(wandb_enabled: bool = True, train: bool = True, eval: int = 1):
     """Main."""
     args = Args.create()
+    args.num_iterations = 10*args.num_iterations
     model_path = Path(__file__).parent / "ppo_drone_racing.ckpt"
     device = torch.device("cuda" if torch.cuda.is_available() and args.cuda else "cpu")
     jax_device = args.jax_device

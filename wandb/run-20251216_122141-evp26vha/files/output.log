@@ -1,0 +1,35 @@
+Training on device: cuda | Environment device: gpu
+Traceback (most recent call last):
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 828, in <module>
+    fire.Fire(main)
+    ~~~~~~~~~^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/fire/core.py", line 135, in Fire
+    component_trace = _Fire(component, args, parsed_flag_args, context, name)
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/fire/core.py", line 468, in _Fire
+    component, remaining_args = _CallAndUpdateTrace(
+                                ~~~~~~~~~~~~~~~~~~~^
+        component,
+        ^^^^^^^^^^
+    ...<2 lines>...
+        treatment='class' if is_class else 'routine',
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        target=component.__name__)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/fire/core.py", line 684, in _CallAndUpdateTrace
+    component = fn(*varargs, **kwargs)
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 813, in main
+    train_ppo(args, model_path, device, jax_device, wandb_enabled)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 577, in train_ppo
+    envs = make_envs(
+        num_envs=args.num_envs, jax_device=jax_device, torch_device=device, coefs=r_coefs
+    )
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 479, in make_envs
+    env = RandTrajEnv(
+        n_samples=10,
+    ...<5 lines>...
+        device=jax_device,
+    )
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 169, in __init__
+    raise ValueError("Trajectory time must be greater than max episode time")
+ValueError: Trajectory time must be greater than max episode time

@@ -1,0 +1,108 @@
+Training on device: cuda | Environment device: gpu
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Iter 1/183 took 2.28 seconds
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Iter 2/183 took 1.03 seconds
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Iter 3/183 took 1.04 seconds
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Iter 4/183 took 0.97 seconds
+Env Reward
+Env Reward
+Env Reward
+Env Reward
+Traceback (most recent call last):
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 829, in <module>
+    fire.Fire(main)
+    ~~~~~~~~~^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/fire/core.py", line 135, in Fire
+    component_trace = _Fire(component, args, parsed_flag_args, context, name)
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/fire/core.py", line 468, in _Fire
+    component, remaining_args = _CallAndUpdateTrace(
+                                ~~~~~~~~~~~~~~~~~~~^
+        component,
+        ^^^^^^^^^^
+    ...<2 lines>...
+        treatment='class' if is_class else 'routine',
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        target=component.__name__)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/fire/core.py", line 684, in _CallAndUpdateTrace
+    component = fn(*varargs, **kwargs)
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 814, in main
+    train_ppo(args, model_path, device, jax_device, wandb_enabled)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py", line 640, in train_ppo
+    wandb.log({"train/reward": r.item()}, step=global_step)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 399, in wrapper
+    return func(self, *args, **kwargs)
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 457, in wrapper_fn
+    return func(self, *args, **kwargs)
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 444, in wrapper
+    return func(self, *args, **kwargs)
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 2028, in log
+    self._log(data=data, step=step, commit=commit)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 1739, in _log
+    self._partial_history_callback(data, step, commit)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 399, in wrapper
+    return func(self, *args, **kwargs)
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/wandb_run.py", line 1566, in _partial_history_callback
+    self._backend.interface.publish_partial_history(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        self,
+        ^^^^^
+    ...<4 lines>...
+        publish_step=not_using_tensorboard,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/interface/interface.py", line 731, in publish_partial_history
+    self._publish_partial_history(partial_history)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/interface/interface_shared.py", line 47, in _publish_partial_history
+    self._publish(rec)
+    ~~~~~~~~~~~~~^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/interface/interface_sock.py", line 43, in _publish
+    self._asyncer.run(lambda: self._client.publish(request))
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/site-packages/wandb/sdk/lib/asyncio_manager.py", line 136, in run
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/concurrent/futures/_base.py", line 451, in result
+    self._condition.wait(timeout)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/lib/python3.13/threading.py", line 359, in wait
+    waiter.acquire()
+    ~~~~~~~~~~~~~~^^
+KeyboardInterrupt

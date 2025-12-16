@@ -82,14 +82,14 @@ def simulate(
 
         while True:
             curr_time = i / config.env.freq
-            #info['env'] = env #Tobias Eszlinger added this line
+            info['env'] = env #Tobias Eszlinger added this line
             action = controller.compute_control(obs, info)
             # Convert to a buffer that meets XLA's alginment restrictions to prevent warnings. See
             # https://github.com/jax-ml/jax/discussions/6055
             # Tracking issue:
             # https://github.com/jax-ml/jax/issues/29810
             #action = np.asarray(jp.asarray(action), copy=True)#Tobias Eszlinger changed this line
-            action = jp.asarray(np.asarray(action), copy=True)#Tobias Eszlinger changed this line
+            action = jp.asarray(np.asarray(action), copy=True)#Tobias Eszlinger added this line
             obs, reward, terminated, truncated, info = env.step(action)
             # Update the controller internal state and models.
             controller_finished = controller.step_callback(

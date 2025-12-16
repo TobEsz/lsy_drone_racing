@@ -1,0 +1,113 @@
+_wandb:
+    value:
+        cli_version: 0.22.2
+        e:
+            qxdg3v7xvzpujs8kxxhccs5nv2ha95ze:
+                codePath: lsy_drone_racing/control/train_rl.py
+                codePathLocal: lsy_drone_racing/control/train_rl.py
+                cpu_count: 16
+                cpu_count_logical: 32
+                cudaVersion: "12.7"
+                disk:
+                    /:
+                        total: "1081101176832"
+                        used: "14509359104"
+                email: tobesz00@gmail.com
+                executable: /home/tobes/repos/lsy_drone_racing/.pixi/envs/gpu/bin/python
+                git:
+                    commit: 499421a2c239b86d3997a486d31587e2e7a14755
+                    remote: https://github.com/TobEsz/lsy_drone_racing.git
+                gpu: NVIDIA GeForce RTX 4080 Laptop GPU
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ada
+                      memoryTotal: "12878610432"
+                      name: NVIDIA GeForce RTX 4080 Laptop GPU
+                      uuid: GPU-9e5f1e4a-57de-728d-bc62-a6c49ff5fdee
+                host: TobiasEPC
+                memory:
+                    total: "16563441664"
+                os: Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.39
+                program: /home/tobes/repos/lsy_drone_racing/lsy_drone_racing/control/train_rl.py
+                python: CPython 3.13.9
+                root: /home/tobes/repos/lsy_drone_racing
+                startedAt: "2025-12-16T11:20:34.754647Z"
+                writerId: qxdg3v7xvzpujs8kxxhccs5nv2ha95ze
+        m: []
+        python_version: 3.13.9
+        t:
+            "1":
+                - 1
+                - 12
+                - 45
+            "2":
+                - 1
+                - 12
+                - 45
+            "3":
+                - 16
+                - 61
+            "4": 3.13.9
+            "5": 0.22.2
+            "12": 0.22.2
+            "13": linux-x86_64
+act_coef:
+    value: 0.02
+anneal_lr:
+    value: true
+batch_size:
+    value: 8192
+clip_coef:
+    value: 0.26
+clip_vloss:
+    value: true
+cuda:
+    value: true
+d_act_th_coef:
+    value: 0.4
+d_act_xy_coef:
+    value: 1
+ent_coef:
+    value: 0.007
+gae_lambda:
+    value: 0.97
+gamma:
+    value: 0.94
+jax_device:
+    value: gpu
+learning_rate:
+    value: 0.0015
+max_grad_norm:
+    value: 1.5
+minibatch_size:
+    value: 1024
+n_obs:
+    value: 2
+norm_adv:
+    value: true
+num_envs:
+    value: 1024
+num_iterations:
+    value: 183
+num_minibatches:
+    value: 8
+num_steps:
+    value: 8
+rpy_coef:
+    value: 0.06
+seed:
+    value: 42
+target_kl:
+    value: null
+torch_deterministic:
+    value: true
+total_timesteps:
+    value: 1500000
+update_epochs:
+    value: 10
+vf_coef:
+    value: 0.7
+wandb_entity:
+    value: null
+wandb_project_name:
+    value: ADR-PPO-Racing
