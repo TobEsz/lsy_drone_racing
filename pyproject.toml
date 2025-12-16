@@ -152,13 +152,14 @@ pytest = "*"
 
 # environments
 [tool.pixi.environments]
-default = { features = ["sim","rl"], solve-group = "default" }
+default = { features = ["sim"], solve-group = "default" }
 deploy = { features = [
     "jazzy",
 ] } # for deploy we must install everything else with pip
 gpu = { features = ["sim", "gpu","rl"], solve-group = "default" }
 online-submission = { features = [
     "sim",
+    "rl",
     "online-submission",
 ], solve-group = "default" }
 tests = { features = ["sim", "rl", "tests"], solve-group = "default" }
