@@ -53,10 +53,10 @@ class AttitudeRL(Controller):
         # Set trajectory parameters
         self.n_samples = 10
         self.samples_dt = 0.1
-        self.trajectory_time = 8.0
-        self.sample_offsets = np.array(
-            np.arange(self.n_samples) * self.freq * self.samples_dt, dtype=int
-        )
+        self.trajectory_time = 6.0
+        # self.sample_offsets = np.array(
+        #     np.arange(self.n_samples) * self.freq * self.samples_dt, dtype=int
+        # )
         self._tick = 0
 
         self.pathfinder = Pathfinder(obs,self.trajectory_time)
@@ -86,18 +86,26 @@ class AttitudeRL(Controller):
             The collective thrust and orientation [t_des, r_des, p_des, y_des] as a numpy array.
         """
 
-        self.pathfinder.update(obs,0)
-        cs = self.pathfinder.pos_spline
-        t_sample = np.linspace(cs.x[0], cs.x[-1], 100)
-        pos_sample = cs(t_sample)
+        t = min(self._tick / self.freq, self.trajectory_time)
+        if t >= self.trajectory_time:  # Maximum duration reached
+            self._finished = True
 
-        ts = np.linspace(0, self.trajectory_time , int(self.freq * self.trajectory_time))
+        self.pathfinder.update(obs,t)
+        self.t_off = self.pathfinder.t_offset
+      
+        # Build sample times relative to t_off
+        sample_times = (t - self.t_off) + np.arange(self.n_samples) * self.samples_dt
+        
+        # Convert times to indices (discrete ticks)
+        self.sample_offsets = (sample_times * self.freq).astype(int)
+
+        t_off = self.pathfinder.t_offset
+        ts = np.linspace(0, self.trajectory_time - t_off, int(self.freq * (self.trajectory_time-t_off)))
         self.trajectory = self.pathfinder.pos_spline(ts)  # (n_steps, 3)
 
-
-        i = min(self._tick, self.trajectory.shape[0] - 1)
-        if i == self.trajectory.shape[0] - 1:  # Maximum duration reached
-            self._finished = True
+        # i = min(self._tick, self.trajectory.shape[0] - 1)
+        # if i == self.trajectory.shape[0] - 1:  # Maximum duration reached
+        #     self._finished = True
 
         obs_rl = self._obs_rl(obs)
         obs_rl = torch.tensor(obs_rl, dtype=torch.float32).unsqueeze(0).to("cpu")
@@ -116,8 +124,12 @@ class AttitudeRL(Controller):
         """Extract the relevant parts of the observation for the RL policy."""
         obs_rl = {}
         obs_rl["basic_obs"] = np.concatenate([obs[k] for k in self.basic_obs_key], axis=-1)
-        idx = np.clip(self._tick + self.sample_offsets, 0, self.trajectory.shape[0] - 1)
-        dpos = self.trajectory[idx] - obs["pos"]  # (n_samples, 3)
+        # idx = np.clip(self._tick + self.sample_offsets, 0, self.trajectory.shape[0] - 1)
+        # dpos = self.trajectory[idx] - obs["pos"]  # (n_samples, 3)
+
+        idx = np.clip(self.sample_offsets, 0, self.trajectory.shape[0] - 1)
+        dpos = self.trajectory[idx] - obs["pos"]
+
         obs_rl["local_samples"] = dpos.reshape(-1)  # (n_samples*3,)
         obs_rl["prev_obs"] = self.prev_obs.reshape(-1)  # (n_obs*13,)
         obs_rl["last_action"] = self.last_action  # (4,)
