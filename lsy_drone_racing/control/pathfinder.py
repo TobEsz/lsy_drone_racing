@@ -179,7 +179,7 @@ class Pipe:
         self.fix_evasion_pos: List[np.ndarray] = []
 
         if h < 1:
-            fix_pos = self.center_pos + np.array([0, 0, 1.1*self.ra]) - self.direction * 0.15
+            fix_pos = self.center_pos + np.array([0, 0, 1.5*self.ra]) - self.direction * 0.15
             self.fix_evasion_pos = [fix_pos, fix_pos]
 
     def _compute_bounds(self) -> None:
@@ -318,6 +318,18 @@ class Points:
             return self.pos[0]
         return None
 
+    def move_away_last(self,to_pos):
+        self.pos[-1] = -0.05 * normalize(to_pos - self.pos[-1])  + self.pos[-1]
+
+    def move_away_first(self,to_pos):
+        self.pos[0] = -0.05 * normalize(to_pos - self.pos[0])  + self.pos[0]
+    
+    def set_last(self,new_pos):
+        self.pos[-1] = new_pos
+
+    def set_first(self,new_pos):
+        self.pos[0] = new_pos
+
 class EvasionPoints(Points):
     def __init__(self):
         super().__init__()
@@ -332,13 +344,15 @@ class EvasionPoints(Points):
     def get_obstacles_id(self):
         return self.obstacles_id
 
-    def check(self,new_obstacles_pos):
-        for i in range(len(self.obstacles_pos)):
-            self.pos[i] = (self.pos[i] - self.obstacles_pos[i]) + new_obstacles_pos[i]
-            self.obstacles_pos[i] = new_obstacles_pos[i]
+    def check(self,new_pos, obstacles_pos, obstacles_id):
+        if len(self.obstacles_pos) == len(obstacles_pos):
+            for i in range(len(self.obstacles_pos)):
+                #self.pos[i] = (self.pos[i] - self.obstacles_pos[i]) + new_obstacles_pos[i]
+                #self.obstacles_pos[i] = new_obstacles_pos[i]
+                if obstacles_id[i] == self.obstacles_id[i]:
+                    if length(new_pos[i]-self.pos[i]) < 0.2:
+                        self.pos[i] = new_pos[i]
             
-
-
 class Path:
     def __init__(self):
         self.start_pos = Points()
@@ -360,6 +374,8 @@ class Path:
         for i in range(4):
             new_path.extend(self.evasion_points[i].pos)
             new_path.extend(self.points[i].pos)
+        for i in range(2,len(new_path)):
+            new_path[i] += np.array([0,0,-0.05])
         return new_path
         
     def check_evasion_points(self, obstacles):
@@ -368,6 +384,18 @@ class Path:
             for i in evasion_points.get_obstacles_id():
                 new_obstacles_pos.append(obstacles[i].center_pos)
             evasion_points.check(new_obstacles_pos)
+
+    def adjust_gate_entry_exit(self):
+        before = self.start_pos.get_last()
+        for i in range(3):
+            after = self.points[i+1].get_first()
+            self.points[i].move_away_first(before)
+            self.points[i].move_away_last(after)
+            before = self.points[i].get_last()
+
+            
+
+
     
             
 # region Pathfinder
@@ -380,7 +408,7 @@ class Pathfinder:
         Args:
             obs (Dict[str, Any]): Observation dictionary containing position, gates, and obstacles.
         """
-        self.gate_pos_offset = 0.3 # 0.3 is good
+        self.gate_pos_offset = 0.4 # 0.3 is good
         self.update_path_normal_distance = 0.01
         self.radius_evasion_factor = 2
         self.gate_ri = 0.1
@@ -454,6 +482,7 @@ class Pathfinder:
             self.path.update(path_free,gate_i)
 
         self.path.append(gate_pos + 2 * (gate_after - gate_pos),3) # Extend the last point 
+        self.path.adjust_gate_entry_exit()
 
     def set_obs(self, obs: Dict[str, Any]) -> None:
         """Sets up obstacles and gates based on the observation data.
@@ -498,16 +527,18 @@ class Pathfinder:
             if abs(angle_between(self.gate_pos[i]-self.gate_after[i],self.gate_before[i+1]-self.gate_after[i])) < 60:
                 do_kick_back = True
             else:
-                for obstacle in self.obstacles:
-                    if obstacle.contains_point(self.gate_after[i]):
-                        do_kick_back = True
-                        break
+                pass # add code below is good
+                # for obstacle in self.obstacles:
+                #     if obstacle.contains_point(self.gate_after[i]):
+                #         do_kick_back = True
+                #         break
             if do_kick_back:
                 # set_i = 2*i + 3 + i_add                #gate_after postions are at 3,5,7,9
                 # #self.path_free[set_i] #change gate_after is necessary
                 # self.path_free = self.path_free[:set_i+1] + [self.path_free[set_i-1]] + self.path_free[set_i+1:]
                 # i_add += 1
                 path_kick_back = self.path.get_pos(i)
+                path_kick_back.append(path_kick_back[1]-np.array([0,0,0.001])) # this is the gate exit 
                 path_kick_back.append(path_kick_back[0])
                 self.path.update(path_kick_back,i)
 
@@ -540,7 +571,13 @@ class Pathfinder:
                 self.path.evasion_points[i].update(path_eva,obstacles_pos,obstacles_id)
             self.path_initial_checked = True
         else:
-            self.path.check_evasion_points(self.obstacles)
+            before = self.path.start_pos.get_last()
+            for i in range(4):
+                points = self.path.points[i]
+                after = points.get_first() # after evasion point is the first point of the next (current) gate
+                path_eva,obstacles_pos,obstacles_id = self.add_evasion_pos(before,after)
+                before = points.get_last()
+                self.path.evasion_points[i].check(path_eva,obstacles_pos,obstacles_id)
                 
 
 

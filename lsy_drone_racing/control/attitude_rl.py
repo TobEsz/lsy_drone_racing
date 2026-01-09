@@ -20,6 +20,8 @@ from scipy.interpolate import CubicSpline
 
 from lsy_drone_racing.control import Controller
 from lsy_drone_racing.control.train_rl import Agent
+from lsy_drone_racing.control.pathfinder import Pathfinder
+from lsy_drone_racing.utils import utils
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -50,31 +52,13 @@ class AttitudeRL(Controller):
         # Set trajectory parameters
         self.n_samples = 10
         self.samples_dt = 0.1
-        self.trajectory_time = 15.0
-        self.sample_offsets = np.array(
-            np.arange(self.n_samples) * self.freq * self.samples_dt, dtype=int
-        )
+        self.trajectory_time = 6.0
+        # self.sample_offsets = np.array(
+        #     np.arange(self.n_samples) * self.freq * self.samples_dt, dtype=int
+        # )
         self._tick = 0
 
-        # Same waypoints as in the trajectory controller. Determined by trial and error.
-        waypoints = np.array(
-            [
-                [-1.5, 0.75, 0.05],
-                [-1.0, 0.55, 0.4],
-                [0.3, 0.35, 0.7],
-                [1.3, -0.15, 0.9],
-                [0.85, 0.85, 1.2],
-                [-0.5, -0.05, 0.7],
-                [-1.2, -0.2, 0.8],
-                [-1.2, -0.2, 1.2],
-                [-0.0, -0.7, 1.2],
-                [0.5, -0.75, 1.2],
-            ]
-        )
-        # Generate spline trajectory
-        ts = np.linspace(0, self.trajectory_time, int(self.freq * self.trajectory_time))
-        spline = CubicSpline(np.linspace(0, self.trajectory_time, waypoints.shape[0]), waypoints)
-        self.trajectory = spline(ts)  # (n_steps, 3)
+        self.pathfinder = Pathfinder(obs,self.trajectory_time)
 
         # Load RL policy
         self.agent = Agent((13 + 3 * self.n_samples + self.n_obs * 13 + 4,), (4,)).to("cpu")
@@ -100,9 +84,27 @@ class AttitudeRL(Controller):
         Returns:
             The collective thrust and orientation [t_des, r_des, p_des, y_des] as a numpy array.
         """
-        i = min(self._tick, self.trajectory.shape[0] - 1)
-        if i == self.trajectory.shape[0] - 1:  # Maximum duration reached
+
+        t = min(self._tick / self.freq, self.trajectory_time)
+        if t >= self.trajectory_time:  # Maximum duration reached
             self._finished = True
+
+        self.pathfinder.update(obs,t)
+        self.t_off = self.pathfinder.t_offset
+      
+        # Build sample times relative to t_off
+        sample_times = (t - self.t_off) + np.arange(self.n_samples) * self.samples_dt
+        
+        # Convert times to indices (discrete ticks)
+        self.sample_offsets = (sample_times * self.freq).astype(int)
+
+        t_off = self.pathfinder.t_offset
+        ts = np.linspace(0, self.trajectory_time - t_off, int(self.freq * (self.trajectory_time-t_off)))
+        self.trajectory = self.pathfinder.pos_spline(ts)  # (n_steps, 3)
+
+        # i = min(self._tick, self.trajectory.shape[0] - 1)
+        # if i == self.trajectory.shape[0] - 1:  # Maximum duration reached
+        #     self._finished = True
 
         obs_rl = self._obs_rl(obs)
         obs_rl = torch.tensor(obs_rl, dtype=torch.float32).unsqueeze(0).to("cpu")
@@ -111,6 +113,8 @@ class AttitudeRL(Controller):
             self.last_action = np.asarray(torch.asarray(act.squeeze(0))).copy()
             act[..., 2] = 0.0
 
+        #utils.draw_line(info['env'],np.asarray(pos_sample))
+        utils.draw_line(info['env'],self.trajectory)
         act = self._scale_actions(act.squeeze(0).numpy()).astype(np.float32)
 
         return act
@@ -119,8 +123,12 @@ class AttitudeRL(Controller):
         """Extract the relevant parts of the observation for the RL policy."""
         obs_rl = {}
         obs_rl["basic_obs"] = np.concatenate([obs[k] for k in self.basic_obs_key], axis=-1)
-        idx = np.clip(self._tick + self.sample_offsets, 0, self.trajectory.shape[0] - 1)
-        dpos = self.trajectory[idx] - obs["pos"]  # (n_samples, 3)
+        # idx = np.clip(self._tick + self.sample_offsets, 0, self.trajectory.shape[0] - 1)
+        # dpos = self.trajectory[idx] - obs["pos"]  # (n_samples, 3)
+
+        idx = np.clip(self.sample_offsets, 0, self.trajectory.shape[0] - 1)
+        dpos = self.trajectory[idx] - obs["pos"]
+
         obs_rl["local_samples"] = dpos.reshape(-1)  # (n_samples*3,)
         obs_rl["prev_obs"] = self.prev_obs.reshape(-1)  # (n_obs*13,)
         obs_rl["last_action"] = self.last_action  # (4,)

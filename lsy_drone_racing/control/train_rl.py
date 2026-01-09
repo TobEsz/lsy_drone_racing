@@ -127,11 +127,11 @@ class RandTrajEnv(DroneEnv):
     def __init__(
         self,
         n_samples: int = 10,
-        trajectory_time: float = 8.0,
+        trajectory_time: float = 5.0,
         samples_dt: float = 0.1,
         *,
         num_envs: int = 1,
-        max_episode_time: float = 8.0,
+        max_episode_time: float = 5.0,
         physics: Literal["so_rpy_rotor_drag", "first_principles"]
         | Physics = Physics.first_principles,
         drone_model: str = "cf21B_500",
