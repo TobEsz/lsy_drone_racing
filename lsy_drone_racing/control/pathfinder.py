@@ -99,8 +99,8 @@ def sort_by_distance(points: List[np.ndarray], reference_point: np.ndarray):
     distances = [np.linalg.norm(p - reference_point) for p in points]
     # enumerate liefert (index, point)
     paired = [(i, p, d) for i, (p, d) in enumerate(zip(points, distances))]
-    paired_sorted = sorted(paired, key=lambda x: x[2])  # sortiere nach distance
-    return paired_sorted
+    dist_sorted = sorted(paired, key=lambda x: x[2])  # sortiere nach distance
+    return dist_sorted
 
 def project_point_on_line(before_pos,after_pos,ref_pos):
     b = np.array(before_pos, dtype=float)
@@ -239,6 +239,7 @@ class Pipe:
         seg_len = np.linalg.norm(seg_dir)
 
         if seg_len == 0:
+            print("WarnWarnWarn No evasion point is calculated")
             return self.contains_point(V1)
 
         steps = int(seg_len / 0.05) + 1
@@ -358,37 +359,28 @@ class EvasionPoints(Points):
         super().__init__()
         self.obstacles_pos = []
         self.obstacles_id = []
+        self.max_changeable_dist = 0.3
 
     def update(self, current_drone_position, before,after, new_pos):
-        super().update(new_pos)
-        #self.obstacles_pos.extend(obstacles_pos)
-        #self.obstacles_id.extend(obstacles_id)
-        # else:
-        #     dist_to_gate_before = length(current_drone_position-before)
-        #     dist_to_gate_after  = length(current_drone_position-after)
+        old_len = len(self.pos)
+        new_len = len(new_pos)
+        if old_len == 0:
+            super().update(new_pos)
+        else:
+            if old_len == new_len:
+                for i in range(old_len):
+                     if length(self.pos[i] - new_pos[i]) < self.max_changeable_dist:
+                         self.pos[i] = new_pos[i]
+            elif old_len < new_len:
+                previous_eva_pos_close_enough = True
+                for pos in self.pos:
+                    sorted_by_pos = sort_by_distance(new_pos,pos)[0] # the closest (index,position,distance)[0]
+                    if sorted_by_pos[2] > self.max_changeable_dist:
+                        previous_eva_pos_close_enough = False
+                        break
+                if previous_eva_pos_close_enough:
+                    super().update(new_pos)
 
-        #     for i,obs_id in enumerate(obstacles_id):
-        #         if obs_id in self.obstacles_id:
-        #             index = self.obstacles_id.index(obs_id)
-        #             old_pos = self.pos[index]
-        #             dist_to_current_evasion = length(current_drone_position-old_pos)
-        #             if index > 0:
-        #                 dist_to_before = self.pos[index-1]
-        #             else:
-        #                 dist_to_before = dist_to_gate_before
-
-        #             if dist_to_current_evasion > 3 * dist_to_before:
-        #                 self.pos[index] = new_pos[i]
-        #         else:
-        #             if len(self.pos) == 0:
-        #                 dist_to_evasion = length(current_drone_position-new_pos[i])
-        #                 if dist_to_evasion > 3 * dist_to_gate_before:
-        #                     self.pos.append(new_pos[i])
-        #                     self.obstacles_id.append(obs_id)
-            
-    
-            
-                        
 
     def get_obstacles_id(self):
         return self.obstacles_id
@@ -420,10 +412,12 @@ class Path:
     def _add_to_new_path(self, positions):
         for pos in positions:
             last_pos = self.new_path[-1]
-            new_pos = pos - np.array([0,0,0.05])
-            distance = length(pos - new_pos)
+            new_pos = pos - np.array([0,0,0.1])
+            distance = length(new_pos - last_pos)
             if distance > 1:
-                self.new_path.append(0.9 * (new_pos - pos) + pos) # Add Points between            
+                direction = new_pos - last_pos
+                self.new_path.append(0.1 * direction + last_pos) # Add Points between 
+                self.new_path.append(0.9 * direction + last_pos) # Add Points between            
             if distance > 0.0001:
                 self.new_path.append(new_pos)
 
@@ -508,7 +502,7 @@ class Pathfinder:
         #     if self.path_free_target_i >= len(self.path_free):
         #         self.path_free_target_i = len(self.path_free) - 1
 
-        if self.new_path:
+        if True or self.new_path:
             self.check_path()
             self.interpolate_path(t)
             self.path_initial_checked = True
@@ -528,10 +522,10 @@ class Pathfinder:
             gate_before = self.gate_before[gate_i]
             gate_after = self.gate_after[gate_i]
             
-            while not self.is_point_safe(gate_before):
+            while not self.is_point_safe(gate_before) and length(gate_before-gate_pos) > 0.1:
                 gate_before = self.gate_offset_adjust * (gate_before-gate_pos) + gate_pos
             
-            while not self.is_point_safe(gate_after):
+            while not self.is_point_safe(gate_after)  and length(gate_after-gate_pos) > 0.1:
                 gate_after = self.gate_offset_adjust * (gate_after-gate_pos) + gate_pos
 
             path_free.append(gate_before)
@@ -703,19 +697,22 @@ class Pathfinder:
             obstacle = self.obstacles[obstacles_id[0]]
             eva_E0 = obstacle.get_safe_evasion_point(V1,V2,self.obstacles)
 
-            obstacles_id_V1_E0 = self.get_colliding_obstacles(V1,eva_E0)
-            if len(obstacles_id_V1_E0) == 1:
-                obstacle_to_id_V1_E0 = self.obstacles[obstacles_id_V1_E0[0]]
-                eva_V1_E0 = obstacle_to_id_V1_E0.get_safe_evasion_point(V1,eva_E0,self.obstacles)
-                new_evasion_pos.append(eva_V1_E0)
+            if eva_E0 is not None:
+                obstacles_id_V1_E0 = self.get_colliding_obstacles(V1,eva_E0)
+                if len(obstacles_id_V1_E0) == 1:
+                    obstacle_to_id_V1_E0 = self.obstacles[obstacles_id_V1_E0[0]]
+                    eva_V1_E0 = obstacle_to_id_V1_E0.get_safe_evasion_point(V1,eva_E0,self.obstacles)
+                    if eva_V1_E0 is not None:
+                        new_evasion_pos.append(eva_V1_E0)
 
-            new_evasion_pos.append(eva_E0)
+                new_evasion_pos.append(eva_E0)
 
-            obstacles_id_E0_V2 = self.get_colliding_obstacles(eva_E0,V2)
-            if len(obstacles_id_E0_V2) == 1:
-                obstacles_to_id_E0_V2 = self.obstacles[obstacles_id_E0_V2[0]]
-                eva_E0_V2 = obstacles_to_id_E0_V2.get_safe_evasion_point(eva_E0,V2,self.obstacles)
-                new_evasion_pos.append(eva_E0_V2)
+                obstacles_id_E0_V2 = self.get_colliding_obstacles(eva_E0,V2)
+                if len(obstacles_id_E0_V2) == 1:
+                    obstacles_to_id_E0_V2 = self.obstacles[obstacles_id_E0_V2[0]]
+                    eva_E0_V2 = obstacles_to_id_E0_V2.get_safe_evasion_point(eva_E0,V2,self.obstacles)
+                    if eva_E0_V2 is not None:
+                        new_evasion_pos.append(eva_E0_V2)
 
         return new_evasion_pos
 

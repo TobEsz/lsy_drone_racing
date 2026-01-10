@@ -52,7 +52,7 @@ class AttitudeRL(Controller):
         # Set trajectory parameters
         self.n_samples = 10
         self.samples_dt = 0.1
-        self.trajectory_time = 7.0
+        self.trajectory_time = 6.5
         # self.sample_offsets = np.array(
         #     np.arange(self.n_samples) * self.freq * self.samples_dt, dtype=int
         # )
