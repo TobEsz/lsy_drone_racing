@@ -72,6 +72,9 @@ def simulate(
         seed=config.env.seed,
     )
     env = JaxToNumpy(env)
+    
+    n_success = 0 # Tobias Eszlinger added this line
+    n_fails = 0 # Tobias Eszlinger added this line
 
     ep_times = []
     for _ in range(n_runs):  # Run n_runs episodes with the controller
@@ -103,6 +106,21 @@ def simulate(
                     env.render()
             i += 1
 
+        # Tobias Eszlinger added this block, Starts here
+        gates_passed = obs["target_gate"]
+        if gates_passed == -1:  # The drone has passed the final gate
+            gates_passed = len(config.env.track.gates)
+        if gates_passed == len(config.env.track.gates): 
+            n_success += 1
+        else:
+            n_fails += 1
+        
+        if n_fails + n_success == n_runs:
+            success_rate = n_success/n_runs * 100
+            fail_rate = n_fails/n_runs * 100
+            print(f"Successrate: {success_rate} % ({n_success}/{n_runs}), Failrate: {fail_rate} % ({n_fails}/{n_runs})")
+        # Tobias Eszlinger added this block, Ends here
+            
         controller.episode_callback()  # Update the controller internal state and models.
         log_episode_stats(obs, info, config, curr_time)
         controller.episode_reset()
