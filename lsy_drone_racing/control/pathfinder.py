@@ -776,15 +776,6 @@ class Pathfinder:
         
     def check_path(self) -> None:
         """Constructs the path with evasion points between gates and obstacles."""
-        # self.path_eva = [self.path_free[0]]
-        # for pos_i in range(1,len(self.path_free)-1):
-        #     self.add_evasion_pos(self.path_free[pos_i-1],self.path_free[pos_i])
-        #     self.path_eva.append(self.path_free[pos_i] - np.array([0,0,0.05]))
-
-        # self.path_eva.append(self.path_free[-1])
-
-
-        #if not self.path_initial_checked:
         before = self.path.start_pos.get_last()
         for i in range(4):
             points = self.path.points[i]
@@ -792,15 +783,6 @@ class Pathfinder:
             path_eva= self.get_evasion_pos(before,after)
             before = points.get_last()
             self.path.evasion_points[i].update(self.current_pos,before, after, path_eva)
-        #     # self.path_initial_checked = True
-        # else:
-        #     before = self.path.start_pos.get_last()
-        #     for i in range(4):
-        #         points = self.path.points[i]
-        #         after = points.get_first() # after evasion point is the first point of the next (current) gate
-        #         path_eva,obstacles_pos,obstacles_id = self.add_evasion_pos(before,after)
-        #         before = points.get_last()
-        #         self.path.evasion_points[i].check(path_eva,obstacles_pos,obstacles_id)
                 
 
 

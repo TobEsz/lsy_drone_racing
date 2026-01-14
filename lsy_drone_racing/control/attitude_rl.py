@@ -1,11 +1,17 @@
 """This module implements an AttitudeController for quadrotor control.
 
-It utilizes the collective thrust interface for drone control to compute control commands based on
-current state observations and desired waypoints. The attitude control is handled by computing a
-PID control law for position tracking, incorporating gravity compensation in thrust calculations.
+This module uses an Reinforcement Learning Attitude Controller.
 
-The waypoints are generated using cubic spline interpolation from a set of predefined waypoints.
-Note that the trajectory uses pre-defined waypoints instead of dynamically generating a good path.
+The trajecotry ist established by the pathfinder module.
+
+The observation space of the Reinforcement Learning Model consists of:
+    - the 10 next position on the trjacetory 
+    - the current pos, vel, ang_vel, quat of the environment obs
+
+The Reinforcement Learning Model is logged in wandb:
+    Run path:   tobesz-technical-university-of-munich/ADR-PPO-Racing/p56ufqpz
+    Shortname:  sparkling-elevator-17
+
 """
 
 from __future__ import annotations  # Python 3.10 type hints
@@ -16,7 +22,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 import torch
 from drone_models.core import load_params
-from scipy.interpolate import CubicSpline
 
 from lsy_drone_racing.control import Controller
 from lsy_drone_racing.control.train_rl import Agent
