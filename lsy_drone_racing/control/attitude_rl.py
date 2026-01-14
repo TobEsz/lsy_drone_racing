@@ -26,7 +26,6 @@ from drone_models.core import load_params
 from lsy_drone_racing.control import Controller
 from lsy_drone_racing.control.train_rl import Agent
 from lsy_drone_racing.control.pathfinder import Pathfinder
-from lsy_drone_racing.utils import utils
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -118,8 +117,6 @@ class AttitudeRL(Controller):
             self.last_action = np.asarray(torch.asarray(act.squeeze(0))).copy()
             act[..., 2] = 0.0
 
-        #utils.draw_line(info['env'],np.asarray(pos_sample))
-        utils.draw_line(info['env'],self.trajectory)
         act = self._scale_actions(act.squeeze(0).numpy()).astype(np.float32)
 
         return act

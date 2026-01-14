@@ -133,7 +133,7 @@ def project_point_on_line(
 
     return projected
 
-def rotated_offset_choice(center:np.ndarray, off:np.ndarray, away:np.ndarray):
+def rotated_offset_choice(center:np.ndarray, off:np.ndarray, away:np.ndarray,dist:float=0.05) -> np.ndarray:
     """
     This function moves the point off slightly to left or right to move away from position away
 
@@ -148,15 +148,15 @@ def rotated_offset_choice(center:np.ndarray, off:np.ndarray, away:np.ndarray):
     v = off - center
     n = length(v)
     if n == 0:
-        raise ValueError("center und off dürfen nicht identisch sein.")
+        return off
     v = normalize(v)
 
     # Rotation around Z-Axe of +90°
     # (x, y, z) → (-y, x, z)
     v_rot = np.array([-v[1], v[0], v[2]])
 
-    p_plus  = off + 0.05 * v_rot
-    p_minus = off - 0.05 * v_rot
+    p_plus  = off + dist * v_rot
+    p_minus = off - dist * v_rot
 
     d_plus  = np.linalg.norm(away - p_plus)
     d_minus = np.linalg.norm(away - p_minus)
@@ -584,7 +584,7 @@ class Path:
         """
         for pos in positions:
             last_pos = self.new_path[-1]
-            new_pos = pos - np.array([0, 0, 0.1])
+            new_pos = pos - np.array([0, 0, 0.08])
             distance = length(new_pos - last_pos)
             if distance > 1:
                 direction = new_pos - last_pos
@@ -716,13 +716,14 @@ class Pathfinder:
         gate_after = None
 
         away = self.start_pos
+        dist = [0.05,0.03,0.05,0.05] # slightly modifid to improve lvl 2
 
         for gate_i, gate_pos in enumerate(self.gate_pos):
             path_free = []
             gate_before = self.gate_before[gate_i]
             gate_after = self.gate_after[gate_i]
 
-            gate_before = rotated_offset_choice(gate_pos,gate_before,away)
+            gate_before = rotated_offset_choice(gate_pos,gate_before,away,dist[gate_i])
 
             # bring gate before closer to gate center if a obstacle is close
             while not self.is_point_safe(gate_before) and length(gate_before - gate_pos) > 0.1:
@@ -730,7 +731,7 @@ class Pathfinder:
 
             if gate_i < 3:
                 away = self.gate_before[gate_i+1]
-                gate_after = rotated_offset_choice(gate_pos,gate_after,away)
+                gate_after = rotated_offset_choice(gate_pos,gate_after,away,dist[gate_i])
 
             # bring gate after closer to gate center if a obstacle is close
             while not self.is_point_safe(gate_after) and length(gate_after - gate_pos) > 0.1:
@@ -749,7 +750,7 @@ class Pathfinder:
 
     def set_obs(self, obs: Dict[str, Any]) -> None:
         """Sets up obstacles and gates based on the observation data.
-
+ 
         Args:
             obs (Dict[str, Any]): Observation data containing gates and obstacles.
         """
