@@ -10,7 +10,7 @@ trjacectory and Pipe collsion suitable evasion points
 from __future__ import annotations
 
 # Standard library imports
-from typing import TYPE_CHECKING, List, Tuple, Dict, Any
+from typing import TYPE_CHECKING, List, Tuple, Dict, Any, Optional
 from datetime import datetime
 
 # Third-party imports
@@ -102,7 +102,22 @@ def sort_by_distance(points: List[np.ndarray], reference_point: np.ndarray):
     dist_sorted = sorted(paired, key=lambda x: x[2])  # sortiere nach distance
     return dist_sorted
 
-def project_point_on_line(before_pos,after_pos,ref_pos):
+def project_point_on_line(
+    before_pos: np.ndarray,
+    after_pos: np.ndarray,
+    ref_pos: np.ndarray,
+) -> np.ndarray:
+    """
+    Project a reference point onto the line defined by two positions.
+
+    Args:
+        before_pos (np.ndarray): First point defining the line.
+        after_pos (np.ndarray): Second point defining the line.
+        ref_pos (np.ndarray): Point to project onto the line.
+
+    Returns:
+        np.ndarray: The projected point on the line.
+    """
     b = np.array(before_pos, dtype=float)
     a = np.array(after_pos, dtype=float)
     r = np.array(ref_pos, dtype=float)
@@ -117,32 +132,6 @@ def project_point_on_line(before_pos,after_pos,ref_pos):
     projected = b + t * ab
 
     return projected
-
-
-class RRT:
-    def __init__(self):
-        self.points = []
-    
-    def update(self,path_free,obstacles,dx,points_per_distance):
-        self.interpolate_path(path_free,points_per_distance)
-        self.displace_colliding_points(obstacles,dx)
-        
-    def interpolate_path(self, path_free, points_per_distance):
-        for i in range(len(path_free) - 1):
-            p1 = np.array(path_free[i])
-            p2 = np.array(path_free[i + 1])
-            distance = length(p2 - p1)
-            num_points = max(1, int(distance * points_per_distance))
-
-            for j in range(num_points):
-                t = j / num_points
-                interpolated = (1 - t) * p1 + t * p2
-                self.points.append(interpolated)
-
-        # Optionally add the last point
-        self.points.append(path_free[-1])
-
-
 
 #region Pipe
 class Pipe:
@@ -281,7 +270,23 @@ class Pipe:
         evas_dir = total_vec / np.linalg.norm(total_vec) * self.ra
         self.evas_dir = evas_dir
 
-    def get_safe_evasion_point(self,V1,V2,obstacles: List["Pipe"]):
+    def get_safe_evasion_point(
+        self,
+        V1: np.ndarray,
+        V2: np.ndarray,
+        obstacles: List["Pipe"],
+    ) -> Optional[np.ndarray]:
+        """
+        Select a valid evasion point that is not inside any obstacle.
+
+        Args:
+            V1 (np.ndarray): Start point of the segment being evaluated.
+            V2 (np.ndarray): End point of the segment being evaluated.
+            obstacles (List[Pipe]): All obstacles to test against.
+
+        Returns:
+            Optional[np.ndarray]: A safe evasion point if one exists, otherwise None.
+        """
         evas_pos = self.evasion_pos
         in_obstacle = []
         for eva_i, eva_pos in enumerate(evas_pos):
@@ -300,17 +305,34 @@ class Pipe:
             else:
                 new_evasion_pos = evas_pos[0]
             return new_evasion_pos
-        
+
         return None
 
 
-    def combine_obstacles(obstacles: List["Pipe"],new_radius_increase: float) -> Pipe:
+    @staticmethod
+    def combine_obstacles(
+        obstacles: List["Pipe"],
+        new_radius_increase: float,
+    ) -> "Pipe":
+        """
+        Combine multiple obstacles into a single enlarged pipe.
+
+        The new pipe is centered at the average position of all obstacles,
+        and its radius is expanded to cover all of them plus an additional margin.
+
+        Args:
+            obstacles (List[Pipe]): Obstacles to merge.
+            new_radius_increase (float): Additional radius added to the combined obstacle.
+
+        Returns:
+            Pipe: A new pipe representing the merged obstacle region.
+        """
         new_center_pos = np.zeros(3)
         new_radius = 0
         for obstacle in obstacles:
             new_center_pos += obstacle.pos
         new_center_pos = new_center_pos / len(obstacles)
-        
+
         for obstacle in obstacles:
             dist = length(obstacle.pos - new_center_pos)
             if dist > new_radius:
@@ -318,50 +340,118 @@ class Pipe:
 
         new_radius += new_radius_increase
 
-        return Pipe(new_center_pos,np.array([0,0,1.0]),0,new_radius,5)
+        return Pipe(new_center_pos, np.array([0, 0, 1.0]), 0, new_radius, 5)
 
 
 #region Points
 class Points:
-    def __init__(self):
+    """
+    Container for storing and manipulating ordered 3D positions.
+    """
+
+    def __init__(self) -> None:
+        """Initialize an empty list of positions."""
         self.pos = []
 
-    def update(self,new_pos):
+    def update(self, new_pos) -> None:
+        """
+        Replace the entire list of stored positions.
+
+        Args:
+            new_pos: New list of positions.
+        """
         self.pos = new_pos
-    
-    def append(self,new_pos):
+
+    def append(self, new_pos) -> None:
+        """
+        Append a new position to the list.
+
+        Args:
+            new_pos: Position to append.
+        """
         self.pos.append(new_pos)
 
     def get_last(self):
+        """
+        Get the last stored position.
+
+        Returns:
+            The last position, or None if empty.
+        """
         if len(self.pos):
             return self.pos[-1]
         return None
-    
+
     def get_first(self):
+        """
+        Get the first stored position.
+
+        Returns:
+            The first position, or None if empty.
+        """
         if len(self.pos):
             return self.pos[0]
         return None
 
-    def move_away_last(self,to_pos):
-        self.pos[-1] = -0.05 * normalize(to_pos - self.pos[-1])  + self.pos[-1]
+    def move_away_last(self, to_pos) -> None:
+        """
+        Move the last point slightly away from a reference position.
 
-    def move_away_first(self,to_pos):
-        self.pos[0] = -0.05 * normalize(to_pos - self.pos[0])  + self.pos[0]
-    
-    def set_last(self,new_pos):
+        Args:
+            to_pos: Reference position to move away from.
+        """
+        self.pos[-1] = -0.05 * normalize(to_pos - self.pos[-1]) + self.pos[-1]
+
+    def move_away_first(self, to_pos) -> None:
+        """
+        Move the first point slightly away from a reference position.
+
+        Args:
+            to_pos: Reference position to move away from.
+        """
+        self.pos[0] = -0.05 * normalize(to_pos - self.pos[0]) + self.pos[0]
+
+    def set_last(self, new_pos) -> None:
+        """
+        Overwrite the last stored position.
+
+        Args:
+            new_pos: New value for the last position.
+        """
         self.pos[-1] = new_pos
 
-    def set_first(self,new_pos):
+    def set_first(self, new_pos) -> None:
+        """
+        Overwrite the first stored position.
+
+        Args:
+            new_pos: New value for the first position.
+        """
         self.pos[0] = new_pos
 
+
 class EvasionPoints(Points):
-    def __init__(self):
+    """
+    Specialized Points container that tracks obstacle-related evasion positions.
+    """
+
+    def __init__(self) -> None:
+        """Initialize evasion points and obstacle tracking."""
         super().__init__()
         self.obstacles_pos = []
         self.obstacles_id = []
         self.max_changeable_dist = 0.3
 
-    def update(self, current_drone_position, before,after, new_pos):
+    def update(self, current_drone_position, before, after, new_pos) -> None:
+        """
+        Update evasion points while preserving stable positions when possible.
+
+        Args:
+            current_drone_position: Current drone position (unused).
+            before: Previous reference point (unused).
+            after: Next reference point (unused).
+            new_pos: Newly computed evasion positions.
+        """
         old_len = len(self.pos)
         new_len = len(new_pos)
         if old_len == 0:
@@ -369,86 +459,148 @@ class EvasionPoints(Points):
         else:
             if old_len == new_len:
                 for i in range(old_len):
-                     if length(self.pos[i] - new_pos[i]) < self.max_changeable_dist:
-                         self.pos[i] = new_pos[i]
+                    if length(self.pos[i] - new_pos[i]) < self.max_changeable_dist:
+                        self.pos[i] = new_pos[i]
             elif old_len < new_len:
                 previous_eva_pos_close_enough = True
                 for pos in self.pos:
-                    sorted_by_pos = sort_by_distance(new_pos,pos)[0] # the closest (index,position,distance)[0]
+                    sorted_by_pos = sort_by_distance(new_pos, pos)[0]
                     if sorted_by_pos[2] > self.max_changeable_dist:
                         previous_eva_pos_close_enough = False
                         break
                 if previous_eva_pos_close_enough:
                     super().update(new_pos)
 
-
     def get_obstacles_id(self):
+        """
+        Get the IDs of obstacles associated with these evasion points.
+
+        Returns:
+            List of obstacle IDs.
+        """
         return self.obstacles_id
 
-    def check(self,new_pos, obstacles_pos, obstacles_id):
+    def check(self, new_pos, obstacles_pos, obstacles_id) -> None:
+        """
+        Update evasion points if obstacle IDs match and movement is small.
+
+        Args:
+            new_pos: New candidate evasion positions.
+            obstacles_pos: Current obstacle positions.
+            obstacles_id: Current obstacle IDs.
+        """
         if len(self.obstacles_pos) == len(obstacles_pos):
             for i in range(len(self.obstacles_pos)):
-                #self.pos[i] = (self.pos[i] - self.obstacles_pos[i]) + new_obstacles_pos[i]
-                #self.obstacles_pos[i] = new_obstacles_pos[i]
                 if obstacles_id[i] == self.obstacles_id[i]:
-                    if length(new_pos[i]-self.pos[i]) < 0.2:
+                    if length(new_pos[i] - self.pos[i]) < 0.2:
                         self.pos[i] = new_pos[i]
-            
+
+
 class Path:
-    def __init__(self):
+    """
+    Manage the full flight path including start, gate, and evasion points.
+    """
+
+    def __init__(self) -> None:
+        """Initialize path containers."""
         self.start_pos = Points()
-        self.points = [Points(),Points(),Points(),Points()]
-        self.evasion_points = [EvasionPoints(),EvasionPoints(),EvasionPoints(),EvasionPoints()] #4 Evasion Points from start to gate 0 and then 3 between gate0,gate1,gate2,gate3
-    
-    def update(self,new_pos,gate_index):
+        self.points = [Points(), Points(), Points(), Points()]
+        self.evasion_points = [
+            EvasionPoints(),
+            EvasionPoints(),
+            EvasionPoints(),
+            EvasionPoints(),
+        ]
+
+    def update(self, new_pos, gate_index) -> None:
+        """
+        Replace the stored points for a specific gate.
+
+        Args:
+            new_pos: New positions for the gate.
+            gate_index: Index of the gate to update.
+        """
         self.points[gate_index].update(new_pos)
 
-    def append(self,new_pos,gate_index):
+    def append(self, new_pos, gate_index) -> None:
+        """
+        Append a new point to a specific gate.
+
+        Args:
+            new_pos: Position to append.
+            gate_index: Gate index to modify.
+        """
         self.points[gate_index].append(new_pos)
 
-    def get_pos(self,gate_index):
+    def get_pos(self, gate_index):
+        """
+        Get stored positions for a specific gate.
+
+        Args:
+            gate_index: Index of the gate.
+
+        Returns:
+            List of positions for the gate.
+        """
         return self.points[gate_index].pos
 
-    def _add_to_new_path(self, positions):
+    def _add_to_new_path(self, positions) -> None:
+        """
+        Add positions to the final path, inserting intermediate points when needed.
+
+        Args:
+            positions: Positions to add.
+        """
         for pos in positions:
             last_pos = self.new_path[-1]
-            new_pos = pos - np.array([0,0,0.1])
+            new_pos = pos - np.array([0, 0, 0.1])
             distance = length(new_pos - last_pos)
             if distance > 1:
                 direction = new_pos - last_pos
-                self.new_path.append(0.1 * direction + last_pos) # Add Points between 
-                self.new_path.append(0.9 * direction + last_pos) # Add Points between            
+                self.new_path.append(0.1 * direction + last_pos)
+                self.new_path.append(0.9 * direction + last_pos)
             if distance > 0.0001:
                 self.new_path.append(new_pos)
 
     def get_path(self):
+        """
+        Build and return the full smoothed path.
+
+        Returns:
+            List of positions forming the full path.
+        """
         self.new_path = []
         self.new_path.extend(self.start_pos.pos)
         for i in range(4):
             self._add_to_new_path(self.evasion_points[i].pos)
             self._add_to_new_path(self.points[i].pos)
         return self.new_path
-        
-    def check_evasion_points(self, obstacles):
+
+    def check_evasion_points(self, obstacles) -> None:
+        """
+        Update evasion points based on obstacle movement.
+
+        Args:
+            obstacles: List of obstacle objects.
+        """
         for evasion_points in self.evasion_points:
             new_obstacles_pos = []
             for i in evasion_points.get_obstacles_id():
                 new_obstacles_pos.append(obstacles[i].center_pos)
             evasion_points.check(new_obstacles_pos)
 
-    def adjust_gate_entry_exit(self):
+    def adjust_gate_entry_exit(self) -> None:
+        """
+        Adjust entry and exit points around gates to avoid sharp transitions.
+        """
         before = self.start_pos.get_last()
         for i in range(3):
-            after = self.points[i+1].get_first()
+            after = self.points[i + 1].get_first()
             self.points[i].move_away_first(before)
             self.points[i].move_away_last(after)
-            before = self.points[i].get_last()
-
-            
+            before = self.points[i].get_last()            
 
 
-    
-            
 # region Pathfinder
 class Pathfinder:
     """Computes and manages a navigable path through gates and obstacles using evasion logic."""
@@ -507,33 +659,53 @@ class Pathfinder:
             self.interpolate_path(t)
             self.path_initial_checked = True
 
-    def is_point_safe(self,point):
+    def is_point_safe(self, point) -> bool:
+        """
+        Check whether a point lies outside all obstacles.
+
+        Args:
+            point: The point to evaluate.
+
+        Returns:
+            bool: False if the point is inside any obstacle, otherwise True.
+        """
         for obstacle in self.obstacles:
             if obstacle.contains_point(point):
                 return False
         return True
 
-    def adjust_gate_offset(self):
+
+    def adjust_gate_offset(self) -> None:
+        """
+        Adjust entry and exit offsets for each gate to ensure the path does not
+        intersect obstacles. The method iteratively pulls the before/after points
+        toward the gate center until they are safe.
+
+        Updates:
+            - Path segments for each gate.
+            - Extends the final segment beyond the last gate.
+        """
         gate_pos = None
         gate_after = None
-        
+
         for gate_i, gate_pos in enumerate(self.gate_pos):
             path_free = []
             gate_before = self.gate_before[gate_i]
             gate_after = self.gate_after[gate_i]
-            
-            while not self.is_point_safe(gate_before) and length(gate_before-gate_pos) > 0.1:
-                gate_before = self.gate_offset_adjust * (gate_before-gate_pos) + gate_pos
-            
-            while not self.is_point_safe(gate_after)  and length(gate_after-gate_pos) > 0.1:
-                gate_after = self.gate_offset_adjust * (gate_after-gate_pos) + gate_pos
+
+            while not self.is_point_safe(gate_before) and length(gate_before - gate_pos) > 0.1:
+                gate_before = self.gate_offset_adjust * (gate_before - gate_pos) + gate_pos
+
+            while not self.is_point_safe(gate_after) and length(gate_after - gate_pos) > 0.1:
+                gate_after = self.gate_offset_adjust * (gate_after - gate_pos) + gate_pos
 
             path_free.append(gate_before)
             path_free.append(gate_after)
 
-            self.path.update(path_free,gate_i)
+            self.path.update(path_free, gate_i)
 
-        self.path.append(gate_pos + 2 * (gate_after - gate_pos),3) # Extend the last point 
+        # Extend the last point
+        self.path.append(gate_pos + 2 * (gate_after - gate_pos), 3)
         self.path.adjust_gate_entry_exit()
 
     def set_obs(self, obs: Dict[str, Any]) -> None:
@@ -632,18 +804,41 @@ class Pathfinder:
                 
 
 
-    def add_better_gate_angle_pos(self,gate_pos,gate_dir,point):
-        alpha = angle_between(gate_dir,point - gate_pos)
+    def add_better_gate_angle_pos(self, gate_pos, gate_dir, point):
+        """
+        Check whether the angle between the gate direction and the point exceeds
+        the allowed gate angle, and if so, compute a corrected gate entry position.
+
+        Args:
+            gate_pos: The gate's center position.
+            gate_dir: The gate's forward direction vector.
+            point: The point whose angle relative to the gate is evaluated.
+
+        Returns:
+            Tuple[bool, Optional[np.ndarray]]:
+                - True and a corrected position if an adjustment is needed.
+                - False and None if no correction is required.
+        """
+        alpha = angle_between(gate_dir, point - gate_pos)
         abs_alpha = abs(alpha)
         if abs_alpha > self.max_gate_angle:
-            #r_vec = R.from_rotvec(-abs_alpha/alpha*(abs_alpha - self.max_gate_angle) * np.cross(gate_dir,point - gate_pos))
             if abs_alpha <= 90:
                 return True, gate_pos + self.gate_pos_offset * gate_dir
             elif abs_alpha < 130:
                 return True, gate_pos - self.gate_pos_offset * gate_dir
         return False, None
 
-    def get_colliding_obstacles(self,V1: np.ndarray, V2: np.ndarray):
+    def get_colliding_obstacles(self, V1: np.ndarray, V2: np.ndarray):
+        """
+        Return the IDs of obstacles that collide with the segment from V1 to V2.
+
+        Args:
+            V1 (np.ndarray): Start point of the segment.
+            V2 (np.ndarray): End point of the segment.
+
+        Returns:
+            List[int]: Sorted obstacle IDs that intersect the segment.
+        """
         obstacles_pos = []
         obstacles_id = []
         for obs_i, obstacle in enumerate(self.obstacles):
@@ -651,66 +846,57 @@ class Pathfinder:
                 obstacles_pos.append(obstacle.center_pos)
                 obstacles_id.append(obs_i)
 
-        obstacles_sorted_set = sort_by_distance(obstacles_pos,V1)
+        obstacles_sorted_set = sort_by_distance(obstacles_pos, V1)
 
         sorted_obstacles_id = []
-        for i,p,d in obstacles_sorted_set: # ipd: index(before sorting), position, distance
+        for i, p, d in obstacles_sorted_set:
             sorted_obstacles_id.append(obstacles_id[i])
-        
-        return sorted_obstacles_id
-                
 
-    def add_evasion_pos(self, V1: np.ndarray, V2: np.ndarray) -> None:
-        """Adds evasion points between two path segments if a collision is detected.
+        return sorted_obstacles_id
+    
+    def get_evasion_pos(self, V1: np.ndarray, V2: np.ndarray) -> List[np.ndarray]:
+        """
+        Compute a sequence of evasion points between V1 and V2 based on obstacle collisions.
+
+        The method:
+        - Finds the first obstacle intersecting the segment V1→V2.
+        - Computes an initial evasion point (E0).
+        - Optionally computes a secondary evasion point between V1→E0.
+        - Optionally computes a secondary evasion point between E0→V2.
+        - Returns all valid evasion points in order.
 
         Args:
             V1 (np.ndarray): Start point of the segment.
             V2 (np.ndarray): End point of the segment.
-        """
-        # new_evasion_pos: List[np.ndarray] = []
 
-        # obstacles_pos = []
-        # obstacles_id = []
-        # for obs_i, obstacle in enumerate(self.obstacles):
-        #     if obs_i not in obstacles_idobstacle.is_colliding(V1, V2):
-        #         evas_pos = obstacle.evasion_pos
-        #         obstacles_pos.append(obstacle.center_pos)
-        #         obstacles_id.append(obs_i)
-        #         # da0, da1 = compute_evasion_angles(V1, V2, evas_pos)
-        #         # i_c = 0 if da0 < da1 else 1
-        
-        # new_evasion_pos_set = sort_by_distance(new_evasion_pos, V1)
-        # new_evasion_pos = []
-        # new_obstacles_pos = []
-        # new_obstacles_id = []
-        # for i,p,d in new_evasion_pos_set:
-        #     new_evasion_pos.append(p)
-        #     new_obstacles_pos.append(obstacles_pos[i])
-        #     new_obstacles_id.append(obstacles_id[i])
-        # return new_evasion_pos, new_obstacles_pos, new_obstacles_id
-    
-    def get_evasion_pos(self,V1,V2):
-        obstacles_id = self.get_colliding_obstacles(V1,V2)
+        Returns:
+            List[np.ndarray]: A list of valid evasion points. May be empty.
+        """
+        obstacles_id = self.get_colliding_obstacles(V1, V2)
 
         new_evasion_pos = []
         if len(obstacles_id):
             obstacle = self.obstacles[obstacles_id[0]]
-            eva_E0 = obstacle.get_safe_evasion_point(V1,V2,self.obstacles)
+            eva_E0 = obstacle.get_safe_evasion_point(V1, V2, self.obstacles)
 
             if eva_E0 is not None:
-                obstacles_id_V1_E0 = self.get_colliding_obstacles(V1,eva_E0)
+                obstacles_id_V1_E0 = self.get_colliding_obstacles(V1, eva_E0)
                 if len(obstacles_id_V1_E0) == 1:
                     obstacle_to_id_V1_E0 = self.obstacles[obstacles_id_V1_E0[0]]
-                    eva_V1_E0 = obstacle_to_id_V1_E0.get_safe_evasion_point(V1,eva_E0,self.obstacles)
+                    eva_V1_E0 = obstacle_to_id_V1_E0.get_safe_evasion_point(
+                        V1, eva_E0, self.obstacles
+                    )
                     if eva_V1_E0 is not None:
                         new_evasion_pos.append(eva_V1_E0)
 
                 new_evasion_pos.append(eva_E0)
 
-                obstacles_id_E0_V2 = self.get_colliding_obstacles(eva_E0,V2)
+                obstacles_id_E0_V2 = self.get_colliding_obstacles(eva_E0, V2)
                 if len(obstacles_id_E0_V2) == 1:
                     obstacles_to_id_E0_V2 = self.obstacles[obstacles_id_E0_V2[0]]
-                    eva_E0_V2 = obstacles_to_id_E0_V2.get_safe_evasion_point(eva_E0,V2,self.obstacles)
+                    eva_E0_V2 = obstacles_to_id_E0_V2.get_safe_evasion_point(
+                        eva_E0, V2, self.obstacles
+                    )
                     if eva_E0_V2 is not None:
                         new_evasion_pos.append(eva_E0_V2)
 
