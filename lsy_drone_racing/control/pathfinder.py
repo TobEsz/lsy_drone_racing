@@ -133,6 +133,36 @@ def project_point_on_line(
 
     return projected
 
+def rotated_offset_choice(center:np.ndarray, off:np.ndarray, away:np.ndarray):
+    """
+    This function moves the point off slightly to left or right to move away from position away
+
+    Args:
+        center (np.ndarray): Gate center position
+        off (np.ndarray): Either gate entry or exit
+        away (np.ndarray): the point that is next or before off on the trajectory
+
+    Returns:
+        np.ndarray: moved off
+    """
+    v = off - center
+    n = length(v)
+    if n == 0:
+        raise ValueError("center und off dürfen nicht identisch sein.")
+    v = normalize(v)
+
+    # Rotation around Z-Axe of +90°
+    # (x, y, z) → (-y, x, z)
+    v_rot = np.array([-v[1], v[0], v[2]])
+
+    p_plus  = off + 0.05 * v_rot
+    p_minus = off - 0.05 * v_rot
+
+    d_plus  = np.linalg.norm(away - p_plus)
+    d_minus = np.linalg.norm(away - p_minus)
+
+    return p_plus if d_minus < d_plus else p_minus
+
 #region Pipe
 class Pipe:
     """Represents a cylindrical pipe segment in 3D space, used for collision detection and evasion logic."""
@@ -228,7 +258,7 @@ class Pipe:
         seg_len = np.linalg.norm(seg_dir)
 
         if seg_len == 0:
-            print("WarnWarnWarn No evasion point is calculated")
+            print("WarnWarnWarn No evasion point is calculated") # this is super rare to happen, on occurence it did not lead to failure
             return self.contains_point(V1)
 
         steps = int(seg_len / 0.05) + 1
@@ -442,18 +472,19 @@ class EvasionPoints(Points):
         self.obstacles_id = []
         self.max_changeable_dist = 0.3
 
-    def update(self, current_drone_position, before, after, new_pos) -> None:
+    def update(self, current_drone_position:np.ndarray, before:np.ndarray, after:np.ndarray, new_pos:np.ndarray) -> None:
         """
         Update evasion points while preserving stable positions when possible.
 
         Args:
-            current_drone_position: Current drone position (unused).
-            before: Previous reference point (unused).
-            after: Next reference point (unused).
-            new_pos: Newly computed evasion positions.
+            current_drone_position (np.ndarray): Current drone position (unused).
+            before(np.ndarray): Previous reference point (unused).
+            after(np.ndarray): Next reference point (unused).
+            new_pos(np.ndarray): Newly computed evasion positions.
         """
         old_len = len(self.pos)
         new_len = len(new_pos)
+        # super().update(new_pos)
         if old_len == 0:
             super().update(new_pos)
         else:
@@ -611,6 +642,8 @@ class Pathfinder:
         Args:
             obs (Dict[str, Any]): Observation dictionary containing position, gates, and obstacles.
         """
+
+        # Trajectory building parameter based on geometry of obstacles, gates
         self.gate_pos_offset = 0.3 # 0.3 is good
         self.update_path_normal_distance = 0.01
         self.radius_evasion_factor = 2
@@ -625,7 +658,7 @@ class Pathfinder:
         self.max_gate_angle = 50
         self.gate_offset_adjust = 0.5 # < 1. When the position of the gate_before or gate_after is inside a collision then self.gate_pos_offset will be multiplied with this until it fits
 
-        #print(obs)
+        # variables for obs and trajectory
         self.start_pos = obs['pos']
         self.current_pos = self.start_pos
         self.path_free = [np.array([100,100,100])]
@@ -637,7 +670,7 @@ class Pathfinder:
         self.t_offset = 0.0
         self.new_path = True
         self.path_initial_checked = False
-        self.path = Path()
+        self.path = Path() # this stores now the different parts of the trajectory
 
     def update(self, obs: Dict[str, Any],t:float) -> None:
         """Updates the current position and recalculates the path.
@@ -648,13 +681,7 @@ class Pathfinder:
         self.current_pos = obs['pos']
         self.set_obs(obs)
 
-        # check if the next target pos is reached
-        # if length(self.current_pos - self.path_free[self.path_free_target_i]) < self.fly_offset:
-        #     self.path_free_target_i += 1
-        #     if self.path_free_target_i >= len(self.path_free):
-        #         self.path_free_target_i = len(self.path_free) - 1
-
-        if True or self.new_path:
+        if self.new_path:
             self.check_path()
             self.interpolate_path(t)
             self.path_initial_checked = True
@@ -688,16 +715,28 @@ class Pathfinder:
         gate_pos = None
         gate_after = None
 
+        away = self.start_pos
+
         for gate_i, gate_pos in enumerate(self.gate_pos):
             path_free = []
             gate_before = self.gate_before[gate_i]
             gate_after = self.gate_after[gate_i]
 
+            gate_before = rotated_offset_choice(gate_pos,gate_before,away)
+
+            # bring gate before closer to gate center if a obstacle is close
             while not self.is_point_safe(gate_before) and length(gate_before - gate_pos) > 0.1:
                 gate_before = self.gate_offset_adjust * (gate_before - gate_pos) + gate_pos
 
+            if gate_i < 3:
+                away = self.gate_before[gate_i+1]
+                gate_after = rotated_offset_choice(gate_pos,gate_after,away)
+
+            # bring gate after closer to gate center if a obstacle is close
             while not self.is_point_safe(gate_after) and length(gate_after - gate_pos) > 0.1:
                 gate_after = self.gate_offset_adjust * (gate_after - gate_pos) + gate_pos
+
+            away = gate_after
 
             path_free.append(gate_before)
             path_free.append(gate_after)
@@ -705,8 +744,8 @@ class Pathfinder:
             self.path.update(path_free, gate_i)
 
         # Extend the last point
-        self.path.append(gate_pos + 2 * (gate_after - gate_pos), 3)
-        self.path.adjust_gate_entry_exit()
+        # self.path.append(gate_pos + 2 * (gate_after - gate_pos), 3)
+        # self.path.adjust_gate_entry_exit()
 
     def set_obs(self, obs: Dict[str, Any]) -> None:
         """Sets up obstacles and gates based on the observation data.
@@ -716,10 +755,12 @@ class Pathfinder:
         """
         last_obstacles = self.obstacles.copy()
         self.obstacles: List[Pipe] = []
+        ra = [0.05,0.05,0,-0.05] # this improves level 2 slightly
 
+        # Setup Start Condition 
         self.current_pos = obs['pos']
         path_free = [self.start_pos]
-        path_free.append(self.start_pos + [0,0,0.2])
+        path_free.append(self.start_pos + [0,0,0.2]) # This seems necessary for current Attitute_RL
         self.path.start_pos.update(path_free)
 
         self.gate_after = []
@@ -728,39 +769,25 @@ class Pathfinder:
 
         gate_after = None
         gate_pos = None
+
+        # Setup the Gate Positions and add Gate to obstacles
         for gate_i, gate_pos in enumerate(obs['gates_pos']):
             gate_before, gate_after, gate_dir = self.get_gate_pos_and_dir(gate_pos, obs['gates_quat'][gate_i])
             self.gate_after.append(gate_after)
             self.gate_pos.append(gate_pos)
             self.gate_before.append(gate_before)
             self.obstacles.append(Pipe(gate_pos, gate_dir, self.gate_ri, self.gate_ra, self.gate_h))
-        
-        for stab_pos in obs['obstacles_pos']:
-            self.obstacles.append(Pipe(stab_pos, [0, 0, 1], 0, self.stab_ra, 4))
+        # Setup the Stab Obstacle
+        for stab_i, stab_pos in enumerate(obs['obstacles_pos']):
+            self.obstacles.append(Pipe(stab_pos, [0, 0, 1], 0, self.stab_ra+ra[stab_i], 4))
         
         self.adjust_gate_offset()
         
-        # Reduce path free to path that is still to go
-        #self.path_free = [self.current_pos] + self.path_free[self.path_free_target_i:]
-
-        i_add = 0
-        
         for i in range(len(self.gate_after)-1): #last obstacle should not have an obstacle behind the gate
             do_kick_back = False
-            # if abs(angle_between(self.gate_pos[i]-self.gate_after[i],self.gate_after[i+1]-self.gate_after[i])) < 40:
             if abs(angle_between(self.gate_pos[i]-self.gate_after[i],self.gate_before[i+1]-self.gate_after[i])) < 60:
                 do_kick_back = True
-            else:
-                pass # add code below is good
-                # for obstacle in self.obstacles:
-                #     if obstacle.contains_point(self.gate_after[i]):
-                #         do_kick_back = True
-                #         break
             if do_kick_back:
-                # set_i = 2*i + 3 + i_add                #gate_after postions are at 3,5,7,9
-                # #self.path_free[set_i] #change gate_after is necessary
-                # self.path_free = self.path_free[:set_i+1] + [self.path_free[set_i-1]] + self.path_free[set_i+1:]
-                # i_add += 1
                 path_kick_back = self.path.get_pos(i)
                 path_kick_back.append(path_kick_back[1]-np.array([0,0,0.001])) # this is the gate exit 
                 path_kick_back.append(path_kick_back[0])
@@ -780,12 +807,10 @@ class Pathfinder:
         for i in range(4):
             points = self.path.points[i]
             after = points.get_first() # after evasion point is the first point of the next (current) gate
-            path_eva= self.get_evasion_pos(before,after)
+            path_eva= self.get_evasion_pos(before,after,i)
             before = points.get_last()
             self.path.evasion_points[i].update(self.current_pos,before, after, path_eva)
                 
-
-
     def add_better_gate_angle_pos(self, gate_pos, gate_dir, point):
         """
         Check whether the angle between the gate direction and the point exceeds
@@ -810,7 +835,7 @@ class Pathfinder:
                 return True, gate_pos - self.gate_pos_offset * gate_dir
         return False, None
 
-    def get_colliding_obstacles(self, V1: np.ndarray, V2: np.ndarray):
+    def get_colliding_obstacles(self, V1: np.ndarray, V2: np.ndarray,ignore_obs_i:List[int]):
         """
         Return the IDs of obstacles that collide with the segment from V1 to V2.
 
@@ -824,7 +849,7 @@ class Pathfinder:
         obstacles_pos = []
         obstacles_id = []
         for obs_i, obstacle in enumerate(self.obstacles):
-            if obstacle.is_colliding(V1, V2):
+            if obs_i not in ignore_obs_i and obstacle.is_colliding(V1, V2):
                 obstacles_pos.append(obstacle.center_pos)
                 obstacles_id.append(obs_i)
 
@@ -836,7 +861,7 @@ class Pathfinder:
 
         return sorted_obstacles_id
     
-    def get_evasion_pos(self, V1: np.ndarray, V2: np.ndarray) -> List[np.ndarray]:
+    def get_evasion_pos(self, V1: np.ndarray, V2: np.ndarray, gate_i:int) -> List[np.ndarray]:
         """
         Compute a sequence of evasion points between V1 and V2 based on obstacle collisions.
 
@@ -850,11 +875,17 @@ class Pathfinder:
         Args:
             V1 (np.ndarray): Start point of the segment.
             V2 (np.ndarray): End point of the segment.
+            gate_i (int): the gate_index used to ignore the gate_obstacles
 
         Returns:
             List[np.ndarray]: A list of valid evasion points. May be empty.
         """
-        obstacles_id = self.get_colliding_obstacles(V1, V2)
+
+        ignore_obs_i = [gate_i]
+        if gate_i > 0:
+            ignore_obs_i.append(gate_i-1)
+
+        obstacles_id = self.get_colliding_obstacles(V1, V2, ignore_obs_i)
 
         new_evasion_pos = []
         if len(obstacles_id):
@@ -862,7 +893,7 @@ class Pathfinder:
             eva_E0 = obstacle.get_safe_evasion_point(V1, V2, self.obstacles)
 
             if eva_E0 is not None:
-                obstacles_id_V1_E0 = self.get_colliding_obstacles(V1, eva_E0)
+                obstacles_id_V1_E0 = self.get_colliding_obstacles(V1, eva_E0, ignore_obs_i)
                 if len(obstacles_id_V1_E0) == 1:
                     obstacle_to_id_V1_E0 = self.obstacles[obstacles_id_V1_E0[0]]
                     eva_V1_E0 = obstacle_to_id_V1_E0.get_safe_evasion_point(
@@ -873,7 +904,7 @@ class Pathfinder:
 
                 new_evasion_pos.append(eva_E0)
 
-                obstacles_id_E0_V2 = self.get_colliding_obstacles(eva_E0, V2)
+                obstacles_id_E0_V2 = self.get_colliding_obstacles(eva_E0, V2, ignore_obs_i)
                 if len(obstacles_id_E0_V2) == 1:
                     obstacles_to_id_E0_V2 = self.obstacles[obstacles_id_E0_V2[0]]
                     eva_E0_V2 = obstacles_to_id_E0_V2.get_safe_evasion_point(
@@ -883,17 +914,6 @@ class Pathfinder:
                         new_evasion_pos.append(eva_E0_V2)
 
         return new_evasion_pos
-
-
-
-
-            
-
-
-
-
-
-
 
     def get_gate_pos_and_dir(self, pos: np.ndarray, quat: List[float]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Computes gate direction and offset positions based on quaternion orientation.
@@ -915,6 +935,6 @@ class Pathfinder:
         self.t_offset = 0
         self.new_path = np.asarray(self.path.get_path())
         self.N = len(self.new_path)
-        t_total = self.N / self.fly_speed
+        # t_total = self.N / self.fly_speed # this could produce better results, when it comes to level 3
         t_values = np.linspace(0,self.trajectory_time - self.t_offset , self.N)
         self.pos_spline = interp1d(t_values, self.new_path, axis=0)
