@@ -138,10 +138,10 @@ colcon-common-extensions = "*"
 ros-kilted-desktop = "*"
 
 [tool.pixi.feature.kilted.activation]
-scripts = ["tools/setup_mocap.sh"]
+scripts = ["/usr/bin/env bash tools/setup_mocap.sh"]
 
 [tool.pixi.activation]
-scripts = ["tools/setup_acados.sh"]
+scripts = ["/usr/bin/env bash tools/setup_acados.sh"]
 
 # feature[online-submission]
 # [tool.pixi.feature.online-submission]
@@ -163,7 +163,7 @@ pytest = "*"
 
 # environments
 [tool.pixi.environments]
-default = { features = ["sim","rl"], solve-group = "default" }
+default = { features = ["sim", "rl"], solve-group = "default" }
 deploy = { features = ["sim", "gpu", "rl", "kilted", "deploy"] }
 gpu = { features = ["sim", "gpu","rl"], solve-group = "default" }
 online-submission = { features = [
