@@ -784,11 +784,9 @@ class Pathfinder:
         
         self.adjust_gate_offset()
         
+        # Check if reversing from gate is possible
         for i in range(len(self.gate_after)-1): #last obstacle should not have an obstacle behind the gate
-            do_kick_back = False
             if abs(angle_between(self.gate_pos[i]-self.gate_after[i],self.gate_before[i+1]-self.gate_after[i])) < 60:
-                do_kick_back = True
-            if do_kick_back:
                 path_kick_back = self.path.get_pos(i)
                 path_kick_back.append(path_kick_back[1]-np.array([0,0,0.001])) # this is the gate exit 
                 path_kick_back.append(path_kick_back[0])
