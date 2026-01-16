@@ -163,8 +163,8 @@ pytest = "*"
 
 # environments
 [tool.pixi.environments]
-default = { features = ["sim"], solve-group = "default" }
-deploy = { features = ["sim", "gpu", "kilted", "deploy"] }
+default = { features = ["sim","rl"], solve-group = "default" }
+deploy = { features = ["sim", "gpu", "rl", "kilted", "deploy"] }
 gpu = { features = ["sim", "gpu","rl"], solve-group = "default" }
 online-submission = { features = [
     "sim",
